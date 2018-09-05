@@ -9,11 +9,11 @@
 #define _IOTGW_RPI_H_
 
 /* Human readable platform definition */
-#define DISPLAY_PLATFORM "IOT Lora GW + Raspberry Pi"
+#define DISPLAY_PLATFORM "IOT Lora GW + Tinkerboard / S"
 
 /* parameters for native spi */
 #define SPI_SPEED		8000000
-#define SPI_DEV_PATH	"/dev/spidev0.0"
+#define SPI_DEV_PATH	"/dev/spidev2.0"
 #define SPI_CS_CHANGE   0
 
 /* parameters for a FT2232H */
