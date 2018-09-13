@@ -9,7 +9,7 @@
 #define _IOTGW_RPI_H_
 
 /* Human readable platform definition */
-#define DISPLAY_PLATFORM "IOT Lora GW + Odroid C2"
+#define DISPLAY_PLATFORM "IOTLGW ODC2"
 
 /* parameters for native spi */
 #define SPI_SPEED		8000000
