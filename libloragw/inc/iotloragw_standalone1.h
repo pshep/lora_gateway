@@ -12,9 +12,9 @@
 #define DISPLAY_PLATFORM "NEBRA SMART"
 
 /* parameters for native spi */
-#define SPI_SPEED		5000000
+#define SPI_SPEED		4000000
 #define SPI_DEV_PATH	"/dev/spidev2.0"
-#define SPI_CS_CHANGE   0
+//#define SPI_CS_CHANGE   0
 
 /* parameters for a FT2232H */
 #define VID		        0x0403
