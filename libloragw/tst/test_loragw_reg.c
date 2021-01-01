@@ -23,10 +23,6 @@ Maintainer: Sylvain Miermont
 #include "loragw_reg.h"
 #include "config.h"
 
-#ifndef SPI_SPEED
-#define SPI_SPEED 8000000
-#endif
-
 /* -------------------------------------------------------------------------- */
 /* --- MAIN FUNCTION -------------------------------------------------------- */
 
@@ -42,7 +38,7 @@ int main()
 
     printf("Beginning of test for loragw_reg.c\n");
 
-    lgw_connect(false, 129E3, SPI_SPEED);
+    lgw_connect(false, 129E3);
     /* 2 SPI transactions:
     -> 0x80 0x00        <- 0x00 0x00        forcing page 0
     -> 0x01 0x00        <- 0x00 0x64        checking version

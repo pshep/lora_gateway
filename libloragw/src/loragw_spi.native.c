@@ -33,20 +33,15 @@ Maintainer: Sylvain Miermont
 
 #include "loragw_spi.h"
 #include "loragw_hal.h"
+#include "loragw_debug.h"
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE MACROS ------------------------------------------------------- */
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
-#if DEBUG_SPI == 1
-    #define DEBUG_MSG(str)                fprintf(stderr, str)
-    #define DEBUG_PRINTF(fmt, args...)    fprintf(stderr,"%s:%d: "fmt, __FUNCTION__, __LINE__, args)
-    #define CHECK_NULL(a)                if(a==NULL){fprintf(stderr,"%s:%d: ERROR: NULL POINTER AS ARGUMENT\n", __FUNCTION__, __LINE__);return LGW_SPI_ERROR;}
-#else
-    #define DEBUG_MSG(str)
-    #define DEBUG_PRINTF(fmt, args...)
-    #define CHECK_NULL(a)                if(a==NULL){return LGW_SPI_ERROR;}
-#endif
+#define DEBUG_MSG(str)                if(debug_spi)fprintf(stderr, str)
+#define DEBUG_PRINTF(fmt, args...)    if(debug_spi)fprintf(stderr,"%s:%d: "fmt, __FUNCTION__, __LINE__, args)
+#define CHECK_NULL(a)                if(debug_spi){if(a==NULL){fprintf(stderr,"%s:%d: ERROR: NULL POINTER AS ARGUMENT\n", __FUNCTION__, __LINE__);return LGW_SPI_ERROR;}}else{if(a==NULL){return LGW_SPI_ERROR;}}
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE CONSTANTS ---------------------------------------------------- */
@@ -54,15 +49,15 @@ Maintainer: Sylvain Miermont
 #define READ_ACCESS     0x00
 #define WRITE_ACCESS    0x80
 // This is handled in an other file to create more hardware freedom
-//#define SPI_SPEED       8000000
-//#define SPI_DEV_PATH    "/dev/spidev0.0"
+#define SPI_SPEED       (atol(getenv("LORAGW_SPEED")==NULL ? "8000000" : getenv("LORAGW_SPEED")))
+#define SPI_DEV_PATH    (getenv("LORAGW_SPI")==NULL ? "/dev/spidev0.0" : getenv("LORAGW_SPI"))
 //#define SPI_DEV_PATH    "/dev/spidev32766.0"
 
 /* -------------------------------------------------------------------------- */
 /* --- PUBLIC FUNCTIONS DEFINITION ------------------------------------------ */
 
 /* SPI initialization and configuration */
-int lgw_spi_open(void **spi_target_ptr, long speed) {
+int lgw_spi_open(void **spi_target_ptr) {
     int *spi_device = NULL;
     int dev;
     int a=0, b=0;
@@ -97,8 +92,7 @@ int lgw_spi_open(void **spi_target_ptr, long speed) {
     }
 
     /* setting SPI max clk (in Hz) */
-    //i = SPI_SPEED;
-    i = speed;
+    i = SPI_SPEED;
     a = ioctl(dev, SPI_IOC_WR_MAX_SPEED_HZ, &i);
     b = ioctl(dev, SPI_IOC_RD_MAX_SPEED_HZ, &i);
     if ((a < 0) || (b < 0)) {
@@ -214,11 +208,16 @@ int lgw_spi_w(void *spi_target, uint8_t spi_mux_mode, uint8_t spi_mux_target, ui
 /* Simple read */
 int lgw_spi_r(void *spi_target, uint8_t spi_mux_mode, uint8_t spi_mux_target, uint8_t address, uint8_t *data) {
     int spi_device;
-    uint8_t out_buf[3];
+    uint8_t out_buf[3]={0};
     uint8_t command_size;
     uint8_t in_buf[ARRAY_SIZE(out_buf)];
+#ifdef SPI_HALFDUPLEX
+    struct spi_ioc_transfer k[2];
+    int a,i;
+#else
     struct spi_ioc_transfer k;
     int a;
+#endif
 
     /* check input variables */
     CHECK_NULL(spi_target);
@@ -237,20 +236,38 @@ int lgw_spi_r(void *spi_target, uint8_t spi_mux_mode, uint8_t spi_mux_target, ui
         command_size = 3;
     } else {
         out_buf[0] = READ_ACCESS | (address & 0x7F);
+#ifdef SPI_HALFDUPLEX
+        command_size = 1;
+#else
         out_buf[1] = 0x00;
         command_size = 2;
+#endif
     }
 
     /* I/O transaction */
     memset(&k, 0, sizeof(k)); /* clear k */
+#ifdef SPI_HALFDUPLEX
+    k[0].tx_buf = (unsigned long) out_buf;
+    k[1].rx_buf = (unsigned long) in_buf;
+    k[0].len = command_size;
+    k[1].len = command_size;
+    k[0].cs_change = 0;
+    k[1].cs_change = 1;
+    a = ioctl(spi_device, SPI_IOC_MESSAGE(2), &k);
+#else
     k.tx_buf = (unsigned long) out_buf;
     k.rx_buf = (unsigned long) in_buf;
     k.len = command_size;
     k.cs_change = 0;
     a = ioctl(spi_device, SPI_IOC_MESSAGE(1), &k);
+#endif
 
     /* determine return code */
+#ifdef SPI_HALFDUPLEX
+    if (a != (int)k[1].len + (int)k[0].len) {
+#else
     if (a != (int)k.len) {
+#endif
         DEBUG_MSG("ERROR: SPI READ FAILURE\n");
         return LGW_SPI_ERROR;
     } else {
@@ -301,7 +318,11 @@ int lgw_spi_wb(void *spi_target, uint8_t spi_mux_mode, uint8_t spi_mux_target, u
     k[0].tx_buf = (unsigned long) &command[0];
     k[0].len = command_size;
     k[0].cs_change = 0;
+#ifdef SPI_HALFDUPLEX
+    k[1].cs_change = 1;
+#else
     k[1].cs_change = 0;
+#endif
     for (i=0; size_to_do > 0; ++i) {
         chunk_size = (size_to_do < LGW_BURST_CHUNK) ? size_to_do : LGW_BURST_CHUNK;
         offset = i * LGW_BURST_CHUNK;
@@ -363,7 +384,11 @@ int lgw_spi_rb(void *spi_target, uint8_t spi_mux_mode, uint8_t spi_mux_target, u
     k[0].tx_buf = (unsigned long) &command[0];
     k[0].len = command_size;
     k[0].cs_change = 0;
+#ifdef SPI_HALFDUPLEX
+    k[1].cs_change = 1;
+#else
     k[1].cs_change = 0;
+#endif
     for (i=0; size_to_do > 0; ++i) {
         chunk_size = (size_to_do < LGW_BURST_CHUNK) ? size_to_do : LGW_BURST_CHUNK;
         offset = i * LGW_BURST_CHUNK;

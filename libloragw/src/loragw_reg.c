@@ -27,20 +27,15 @@ Maintainer: Sylvain Miermont
 #include "loragw_spi.h"
 #include "loragw_reg.h"
 #include "loragw_fpga.h"
+#include "loragw_debug.h"
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE MACROS ------------------------------------------------------- */
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
-#if DEBUG_REG == 1
-    #define DEBUG_MSG(str)              fprintf(stderr, str)
-    #define DEBUG_PRINTF(fmt, args...)  fprintf(stderr,"%s:%d: "fmt, __FUNCTION__, __LINE__, args)
-    #define CHECK_NULL(a)               if(a==NULL){fprintf(stderr,"%s:%d: ERROR: NULL POINTER AS ARGUMENT\n", __FUNCTION__, __LINE__);return LGW_REG_ERROR;}
-#else
-    #define DEBUG_MSG(str)
-    #define DEBUG_PRINTF(fmt, args...)
-    #define CHECK_NULL(a)               if(a==NULL){return LGW_REG_ERROR;}
-#endif
+#define DEBUG_MSG(str)              if(debug_reg)fprintf(stderr, str)
+#define DEBUG_PRINTF(fmt, args...)  if(debug_reg)fprintf(stderr,"%s:%d: "fmt, __FUNCTION__, __LINE__, args)
+#define CHECK_NULL(a)               if(debug_reg){if(a==NULL){fprintf(stderr,"%s:%d: ERROR: NULL POINTER AS ARGUMENT\n", __FUNCTION__, __LINE__);return LGW_REG_ERROR;}}else{if(a==NULL){return LGW_REG_ERROR;}}
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE CONSTANTS ---------------------------------------------------- */
@@ -501,7 +496,7 @@ int reg_r_align32(void *spi_target, uint8_t spi_mux_mode, uint8_t spi_mux_target
 /* --- PUBLIC FUNCTIONS DEFINITION ------------------------------------------ */
 
 /* Concentrator connect */
-int lgw_connect(bool spi_only, uint32_t tx_notch_freq, long speed) {
+int lgw_connect(bool spi_only, uint32_t tx_notch_freq) {
     int spi_stat = LGW_SPI_SUCCESS;
     uint8_t u = 0;
     int x;
@@ -513,7 +508,7 @@ int lgw_connect(bool spi_only, uint32_t tx_notch_freq, long speed) {
     }
 
     /* open the SPI link */
-    spi_stat = lgw_spi_open(&lgw_spi_target, speed);
+    spi_stat = lgw_spi_open(&lgw_spi_target);
     if (spi_stat != LGW_SPI_SUCCESS) {
         DEBUG_MSG("ERROR CONNECTING CONCENTRATOR\n");
         return LGW_REG_ERROR;

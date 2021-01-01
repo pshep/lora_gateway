@@ -337,9 +337,10 @@ int lgw_txgain_setconf(struct lgw_tx_gain_lut_s *conf);
 /**
 @brief Connect to the LoRa concentrator, reset it and configure it according to previously set parameters
 #param speed communication speed in HZ for the SPI interface
+#param device device file for the SPI interface
 @return LGW_HAL_ERROR id the operation failed, LGW_HAL_SUCCESS else
 */
-int lgw_start(long speed);
+int lgw_start();
 
 /**
 @brief Stop the LoRa concentrator and disconnect it
@@ -414,6 +415,12 @@ const char* lgw_version_info(void);
 @return the packet time on air in milliseconds
 */
 uint32_t lgw_time_on_air(struct lgw_pkt_tx_s *packet);
+
+extern uint8_t lgwx_device_mode;
+extern uint8_t lgwx_beacon_len;
+extern uint8_t lgwx_beacon_sf;
+extern uint8_t lgwx_lbt_mode;
+enum { LGWX_LBT_MODE_DFLT=0, LGWX_LBT_MODE_OFF = 1 };
 
 #endif
 
